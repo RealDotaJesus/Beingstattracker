@@ -1,0 +1,7 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(curl -s -w \"\\\\nHTTP_STATUS: %{http_code}\\\\n\" -H \"User-Agent: Mozilla/5.0\" \"https://www.dotabuff.com/esports/leagues/17081-reincarnation-d-a-ch-dota-2-by-being-esports-season-4/series\")"
+    ]
+  }
+}
