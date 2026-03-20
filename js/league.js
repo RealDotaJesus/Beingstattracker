@@ -25,7 +25,8 @@ function proxiesFor(page) {
 // Global state
 // ─────────────────────────────────────────────────────────────────────────────
 let currentSlug      = '';
-let currentMatchIds  = [];   // match IDs confirmed by user at preview step
+let currentSource    = 'dotabuff';   // 'dotabuff' | 'csv' | 'paste'
+let currentMatchIds  = [];
 let currentMatches   = [];
 let currentTeams     = [];
 let currentPlayers   = [];
@@ -119,12 +120,13 @@ function showPreview(matchIds, pages, log = []) {
   errorState.classList.add('hidden');
   previewState.classList.remove('hidden');
 
-  previewSubtitle.textContent =
-    `${matchIds.length} match IDs found across ${pages} page${pages !== 1 ? 's' : ''}. ` +
-    `Review below, then start extraction.`;
+  previewSubtitle.textContent = pages != null
+    ? `${matchIds.length} match IDs found across ${pages} page${pages !== 1 ? 's' : ''}. Review below, then start extraction.`
+    : `${matchIds.length} match IDs loaded from CSV. Review below, then start extraction.`;
 
   // Page-by-page scrape log — each chip is clickable to retry that page
   const logEl = $('scrapeLog');
+  if (logEl) logEl.style.display = 'none';
   if (log.length && logEl) {
     logEl.innerHTML = log.map(({ page, ids, status }) => {
       const icon = status === 'ok' || status === 'retry-ok' ? '✓' : status === 'empty' ? '—' : '✗';
@@ -767,7 +769,8 @@ $('startExtractionBtn').addEventListener('click', async () => {
   loadingState.classList.remove('hidden');
   progressWrap.style.display = 'none';
   setLoading('Fetching match data from OpenDota…');
-  await runPipeline(currentSlug, currentMatchIds, `Dotabuff (${currentMatchIds.length} matches)`);
+  const label = currentSource === 'csv' ? 'CSV import' : `Dotabuff (${currentMatchIds.length} matches)`;
+  await runPipeline(currentSlug, currentMatchIds, label);
 });
 
 $('exportMatchIdsBtn').addEventListener('click', () => {
@@ -799,14 +802,44 @@ parseBtn.addEventListener('click', () => {
 // ─────────────────────────────────────────────────────────────────────────────
 async function init() {
   const params = new URLSearchParams(window.location.search);
-  const slug   = params.get('slug');
+  const source = params.get('source');   // 'csv' or absent
+
+  // ── CSV import path ─────────────────────────────────────────────────────────
+  if (source === 'csv') {
+    const name = params.get('name') || 'imported';
+    currentSlug   = name;
+    currentSource = 'csv';
+    document.title = `${name} — Beingstattracker`;
+
+    const stored = sessionStorage.getItem('bst_import_ids');
+    sessionStorage.removeItem('bst_import_ids');
+
+    if (!stored) {
+      showError('No imported data', 'No match IDs were found in the import. Go back and try again.', false);
+      return;
+    }
+
+    const ids = JSON.parse(stored);
+    if (!ids.length) {
+      showError('Empty import', 'The CSV contained no valid match IDs.', false);
+      return;
+    }
+
+    currentMatchIds = ids;
+    showPreview(ids, null, []);
+    return;
+  }
+
+  // ── Dotabuff scrape path ────────────────────────────────────────────────────
+  const slug = params.get('slug');
 
   if (!slug) {
     showError('No league slug', 'Go back to the home page and paste a Dotabuff URL.', false);
     return;
   }
 
-  currentSlug = slug;
+  currentSlug   = slug;
+  currentSource = 'dotabuff';
   document.title = `${slug} — Beingstattracker`;
 
   const maxPagesParam = parseInt(params.get('maxPages'), 10);
@@ -837,7 +870,6 @@ async function init() {
     return;
   }
 
-  // Show preview — user confirms before extraction starts
   currentMatchIds = scraped.ids;
   showPreview(scraped.ids, scraped.pages, scraped.log);
 }

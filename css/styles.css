@@ -132,6 +132,66 @@ a:hover { text-decoration: underline; }
   font-size: 0.82rem;
 }
 
+/* Divider between scrape and import */
+.home-divider {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  gap: 12px;
+  color: var(--text-muted);
+  font-size: 0.8rem;
+}
+.home-divider::before,
+.home-divider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--border);
+}
+
+/* CSV import */
+.import-section {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+}
+
+.import-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--bg-card);
+  border: 1px dashed var(--border);
+  border-radius: 10px;
+  color: var(--text-muted);
+  font-size: 0.92rem;
+  font-weight: 500;
+  padding: 12px 28px;
+  cursor: pointer;
+  transition: border-color 0.2s, color 0.2s;
+  width: 100%;
+  justify-content: center;
+}
+.import-label:hover {
+  border-color: var(--accent);
+  color: var(--text);
+}
+
+.import-name-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  flex-wrap: wrap;
+}
+
+.import-status {
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
 /* Max pages option row */
 .options-row {
   display: flex;
