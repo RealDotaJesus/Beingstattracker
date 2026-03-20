@@ -31,6 +31,7 @@ let currentMatches   = [];
 let currentTeams     = [];
 let currentPlayers   = [];
 let heroMap          = {};   // heroId (string) → localized_name
+let failedMatchIds   = [];   // IDs that OpenDota failed to return
 
 // ─────────────────────────────────────────────────────────────────────────────
 // DOM helpers
@@ -364,11 +365,17 @@ async function fetchMatch(matchId) {
 
 async function fetchAllMatches(ids) {
   const results = [];
+  failedMatchIds = [];
   for (let i = 0; i < ids.length; i += BATCH_SIZE) {
     const batch    = ids.slice(i, i + BATCH_SIZE);
     const settled  = await Promise.allSettled(batch.map(fetchMatch));
-    for (const s of settled) {
-      if (s.status === 'fulfilled' && s.value?.match_id) results.push(s.value);
+    for (let j = 0; j < settled.length; j++) {
+      const s = settled[j];
+      if (s.status === 'fulfilled' && s.value?.match_id) {
+        results.push(s.value);
+      } else {
+        failedMatchIds.push(batch[j]);
+      }
     }
     setProgress(Math.min(i + BATCH_SIZE, ids.length), ids.length);
     if (i + BATCH_SIZE < ids.length) await new Promise(r => setTimeout(r, BATCH_DELAY));
@@ -759,6 +766,13 @@ async function runPipeline(slug, matchIds, sourceLabel) {
   renderPlayers(players);
   renderGames(matches);
   showContent();
+
+  if (failedMatchIds.length > 0) {
+    $('failedBadge').textContent = `${failedMatchIds.length} match${failedMatchIds.length !== 1 ? 'es' : ''} failed to load`;
+    $('retryFailedBtn').textContent = '↺ Retry Failed Matches';
+    $('retryFailedBtn').disabled = false;
+    $('retrySection').classList.remove('hidden');
+  }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -780,6 +794,67 @@ $('exportMatchIdsBtn').addEventListener('click', () => {
 
 $('cancelPreviewBtn').addEventListener('click', () => {
   window.location.href = 'index.html';
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Retry failed matches
+// ─────────────────────────────────────────────────────────────────────────────
+$('retryFailedBtn').addEventListener('click', async () => {
+  if (!failedMatchIds.length) return;
+
+  const btn          = $('retryFailedBtn');
+  const retrySection = $('retrySection');
+  const retryProgress = $('retryProgress');
+  const retryFill    = $('retryProgressFill');
+  const retryLabel   = $('retryProgressLabel');
+
+  btn.disabled = true;
+  btn.textContent = '↺ Retrying…';
+  retryProgress.classList.remove('hidden');
+  retryFill.style.width = '0%';
+
+  const retryIds = [...failedMatchIds];
+  failedMatchIds = [];
+
+  const newMatches = [];
+  for (let i = 0; i < retryIds.length; i += BATCH_SIZE) {
+    const batch   = retryIds.slice(i, i + BATCH_SIZE);
+    const settled = await Promise.allSettled(batch.map(fetchMatch));
+    for (let j = 0; j < settled.length; j++) {
+      const s = settled[j];
+      if (s.status === 'fulfilled' && s.value?.match_id) {
+        newMatches.push(s.value);
+      } else {
+        failedMatchIds.push(batch[j]);
+      }
+    }
+    const done = Math.min(i + BATCH_SIZE, retryIds.length);
+    retryFill.style.width = `${Math.round((done / retryIds.length) * 100)}%`;
+    retryLabel.textContent = `${done} / ${retryIds.length}`;
+    if (i + BATCH_SIZE < retryIds.length) await new Promise(r => setTimeout(r, BATCH_DELAY));
+  }
+
+  if (newMatches.length > 0) {
+    currentMatches = [...currentMatches, ...newMatches];
+    const { teams, players } = aggregateMatches(currentMatches);
+    currentTeams   = teams;
+    currentPlayers = players;
+    renderSummary(teams, players, currentMatches);
+    renderTeams(teams);
+    renderPlayers(players);
+    renderGames(currentMatches);
+  }
+
+  retryProgress.classList.add('hidden');
+  retryFill.style.width = '0%';
+
+  if (failedMatchIds.length > 0) {
+    $('failedBadge').textContent = `${failedMatchIds.length} match${failedMatchIds.length !== 1 ? 'es' : ''} still failed`;
+    btn.textContent = '↺ Retry Again';
+    btn.disabled = false;
+  } else {
+    retrySection.classList.add('hidden');
+  }
 });
 
 // ─────────────────────────────────────────────────────────────────────────────

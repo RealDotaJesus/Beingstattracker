@@ -90,6 +90,18 @@
       </div>
     </section>
 
+    <!-- Retry failed matches -->
+    <div id="retrySection" class="retry-section hidden">
+      <div class="retry-info">
+        <span id="failedBadge" class="failed-badge"></span>
+        <button id="retryFailedBtn" class="retry-btn">↺ Retry Failed Matches</button>
+      </div>
+      <div id="retryProgress" class="retry-progress hidden">
+        <div class="progress-bar"><div class="progress-fill" id="retryProgressFill"></div></div>
+        <span class="progress-label" id="retryProgressLabel"></span>
+      </div>
+    </div>
+
     <!-- Tabs + export bar -->
     <div id="tabRow" class="tab-row hidden">
       <nav class="tab-nav">
